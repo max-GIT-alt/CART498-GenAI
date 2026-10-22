@@ -1,7 +1,5 @@
 # The Readymade Machine
 
-*Draft — CART assignment: International Art English generator*
-
 A Flask web app that turns any ordinary object into a work of contemporary art. A visitor describes something from their pocket, bag or desk; the app writes the object's museum wall label (tombstone + extended label) with the OpenAI API, then generates an installation view of the object with the OpenAI Images API, and hangs the two side by side like a gallery wall.
 
 - **Live app:** `https://<your-app>.onrender.com` *(add after deploying)*
