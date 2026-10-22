@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Readymade Machine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<header class="masthead">
+  <p class="eyebrow">Department of Pocket Contents</p>
+  <h1>The Readymade Machine</h1>
+  <p class="lede">Describe something from your pocket, bag or desk. The museum will accession it.</p>
+</header>
+
+<form method="post" class="submit" id="submit-form">
+  <label for="description">Object for consideration</label>
+  <textarea id="description" name="description" rows="3" maxlength="{{ max_chars }}"
+    placeholder="e.g. a half-eaten granola bar, still in its torn foil wrapper, slightly melted"
+    required>{{ description }}</textarea>
+  <div class="row">
+    <span class="hint">Be specific: colour, material, damage, where you found it.</span>
+    <button type="submit" id="submit-btn">Submit to the collection</button>
+  </div>
+</form>
+
+<div class="loading" id="loading" hidden>
+  <div class="spinner"></div>
+  <p>Curating… writing the label, installing the work, adjusting the lighting.<br>
+     <span>This can take up to a minute.</span></p>
+</div>
+
+{% if error %}
+  <p class="error">{{ error }}</p>
+{% endif %}
+
+{% if label %}
+<main class="wall">
+  <figure class="work">
+    {% if image %}
+      <img src="{{ image }}" alt="Installation view: {{ label.title }} by {{ label.artist_name }}">
+    {% else %}
+      <div class="placeholder">Installation view unavailable<br><small>(mock mode)</small></div>
+    {% endif %}
+    <figcaption>Installation view</figcaption>
+  </figure>
+
+  <aside class="label">
+    <div class="tombstone">
+      <p class="artist">{{ label.artist_name }}</p>
+      <p class="bio">{{ label.artist_bio }}</p>
+      <p class="title"><em>{{ label.title }}</em>, {{ label.year }}</p>
+      <p>{{ label.medium }}</p>
+      <p>{{ label.dimensions }}</p>
+      <p class="provenance"><span>Provenance:</span> {{ label.provenance }}</p>
+      <p class="credit">{{ label.credit_line }}</p>
+    </div>
+    <div class="extended">
+      <p>{{ label.extended_label }}</p>
+      <p class="cite">See {{ label.theorist_name }}, <em>{{ label.theorist_book }}</em>.</p>
+    </div>
+    <details class="notes">
+      <summary>Registrar's notes</summary>
+      <p><strong>Extended label:</strong> {{ word_total }} words</p>
+      <p><strong>Image prompt (written from the label):</strong> {{ image_prompt }}</p>
+    </details>
+  </aside>
+</main>
+{% endif %}
+
+<footer>
+  All artists, theorists and reputations in this museum are invented.
+  Labels and images generated with the OpenAI API.
+</footer>
+
+<script>
+  document.getElementById('submit-form').addEventListener('submit', function () {
+    document.getElementById('submit-btn').disabled = true;
+    document.getElementById('submit-btn').textContent = 'Under review…';
+    document.getElementById('loading').hidden = false;
+  });
+</script>
+</body>
+</html>
