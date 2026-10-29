@@ -1,0 +1,18 @@
+[
+  {"clan": "Kithuru", "creature": "moss-backed tree lizard", "phrase": "Kith-ka ses-ne. Ul hela-vo.", "gloss": "tree-MY river-PAST. sun come-FUTURE.", "translation": "My tree has drunk from the river. The sun will come.", "mood": "content"},
+  {"clan": "Vashari", "creature": "rain frog", "phrase": "Vash vash vash-ru! Aaru-ru ha!", "gloss": "rain rain rain-OUR! sing-WE EMPH!", "translation": "Rain, rain, our rain! We sing!", "mood": "joyful"},
+  {"clan": "Morthil", "creature": "night owl-moth", "phrase": "Lith-ka hela-sh? Mor nim-'i tok.", "gloss": "moon-MY come-Q? night small-PL flee.", "translation": "Is my moon coming? The little ones of the night are hiding.", "mood": "anxious"},
+  {"clan": "Shopra", "creature": "fruit bat", "phrase": "Sho-'i pra-ne… rrun-ka!", "gloss": "fruit-PL fly-PAST… hunger-MY!", "translation": "The fruits have flown away… and I am hungry!", "mood": "greedy"},
+  {"clan": "Kuvel", "creature": "stone tortoise", "phrase": "Ku… ku… vel-ka. Eeh.", "gloss": "stone… stone… friend-MY. here.", "translation": "Stone, stone, my friend. I am here.", "mood": "patient"},
+  {"clan": "Sesnim", "creature": "river eel", "phrase": "Ses nim-ru. Ses aaru.", "gloss": "river child-WE. river sing.", "translation": "We are the river's children. The river sings.", "mood": "tender"},
+  {"clan": "Tokrrun", "creature": "jungle predator", "phrase": "Tok! Tok! Rrun-ka ha hela!", "gloss": "flee! flee! hunger-MY EMPH come!", "translation": "Run! Run! My hunger is coming!", "mood": "menacing"},
+  {"clan": "Ulmira", "creature": "sun bird", "phrase": "Ul-ka, ul-ru, ul-'i!", "gloss": "sun-MY, sun-OUR, sun-PL!", "translation": "My sun, our sun, all the suns!", "mood": "ecstatic"},
+  {"clan": "Velnim", "creature": "newborn of no known clan", "phrase": "Vel-ka-sh? Eeh… eeh…", "gloss": "friend-MY-Q? here… here…", "translation": "Are you my friend? I'm here… I'm here…", "mood": "pleading"},
+  {"clan": "Lithpra", "creature": "moon glider", "phrase": "Lith pra-vo. Kith-'i mor-ne.", "gloss": "moon fly-FUTURE. tree-PL night-PAST.", "translation": "The moon will fly. The trees have become night.", "mood": "dreamy"},
+  {"clan": "Rrunsho", "creature": "seed beetle", "phrase": "Sho sho sho sho… rrun-ne.", "gloss": "seed seed seed seed… eat-PAST.", "translation": "Seeds, seeds, seeds, seeds… all eaten.", "mood": "smug"},
+  {"clan": "Aaruvash", "creature": "canopy howler", "phrase": "Aaaaru-ru! Vash tok, ul hela!", "gloss": "siiing-WE! rain flee, sun come!", "translation": "We sing! Rain, go away; sun, come!", "mood": "defiant"},
+  {"clan": "Kumor", "creature": "burrower", "phrase": "Ku-ka mor. Ul tok-sh?", "gloss": "ground-MY night. sun danger-Q?", "translation": "My ground is dark. Is the sun dangerous?", "mood": "wary"},
+  {"clan": "Nimses", "creature": "pond strider", "phrase": "Nim, nim, ses-ka ha nim.", "gloss": "small, small, river-MY EMPH small.", "translation": "Small, small, my river is so very small.", "mood": "fretful"},
+  {"clan": "Pravel", "creature": "courting flier", "phrase": "Pra-ka hela… vel-vo-sh?", "gloss": "fly-I come… mate-FUTURE-Q?", "translation": "I fly to you… will you be my mate?", "mood": "courting"},
+  {"clan": "Eehlith", "creature": "the eldest creature", "phrase": "Eeh-ne. Eeh. Eeh-vo. Kith hela.", "gloss": "here-PAST. here. here-FUTURE. tree come.", "translation": "I was here. I am here. I will be here. The trees are coming.", "mood": "ancient"}
+]
