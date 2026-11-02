@@ -1,0 +1,567 @@
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "revision": 0,
+  "last_node_id": 10,
+  "last_link_id": 12,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "CheckpointLoaderSimple",
+      "pos": [
+        80,
+        80
+      ],
+      "size": [
+        360,
+        100
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            6
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            1,
+            2
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            5,
+            7
+          ],
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CheckpointLoaderSimple"
+      },
+      "widgets_values": [
+        "dreamshaper-xl.safetensors"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "LoadImage",
+      "pos": [
+        80,
+        290
+      ],
+      "size": [
+        360,
+        320
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            3
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "anchor_1_surreal.png",
+        "image"
+      ],
+      "title": "anchor 01"
+    },
+    {
+      "id": 2,
+      "type": "CLIPTextEncode",
+      "pos": [
+        510,
+        80
+      ],
+      "size": [
+        360,
+        160
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            8
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": [
+        "cinematic fantasy illustration, dramatic lighting, rich colours, highly detailed"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "CLIPTextEncode",
+      "pos": [
+        510,
+        290
+      ],
+      "size": [
+        360,
+        160
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            9
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPTextEncode"
+      },
+      "widgets_values": [
+        "lowres, bad anatomy, bad hands, blurry, watermark, text, jpeg artifacts"
+      ]
+    },
+    {
+      "id": 5,
+      "type": "ImageScale",
+      "pos": [
+        510,
+        520
+      ],
+      "size": [
+        360,
+        150
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            4
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageScale"
+      },
+      "widgets_values": [
+        "lanczos",
+        1024,
+        1024,
+        "disabled"
+      ]
+    },
+    {
+      "id": 6,
+      "type": "VAEEncode",
+      "pos": [
+        940,
+        520
+      ],
+      "size": [
+        300,
+        80
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "pixels",
+          "type": "IMAGE",
+          "link": 4
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 5
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            10
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEEncode"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 7,
+      "type": "KSamplerFrames",
+      "pos": [
+        1300,
+        500
+      ],
+      "size": [
+        420,
+        560
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 6
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 7
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 8
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 9
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 10
+        }
+      ],
+      "outputs": [
+        {
+          "name": "final_image",
+          "type": "IMAGE",
+          "links": [
+            11
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "frames",
+          "type": "IMAGE",
+          "links": [],
+          "slot_index": 1
+        },
+        {
+          "name": "run_id",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 2
+        },
+        {
+          "name": "gif_path",
+          "type": "STRING",
+          "links": [
+            12
+          ],
+          "slot_index": 3
+        },
+        {
+          "name": "final_path",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 4
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "KSamplerFrames"
+      },
+      "widgets_values": [
+        4242,
+        "fixed",
+        30,
+        6.0,
+        "dpmpp_2m",
+        "karras",
+        0.75,
+        "x0 (denoised prediction)",
+        2,
+        512,
+        8.0,
+        "session",
+        "DreamShaper XL \u00b7 anchor 01",
+        "anchor_1_surreal",
+        true,
+        true
+      ],
+      "title": "KSampler (capture process)"
+    },
+    {
+      "id": 8,
+      "type": "PreviewImage",
+      "pos": [
+        1780,
+        500
+      ],
+      "size": [
+        400,
+        450
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 11
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [],
+      "title": "final image"
+    },
+    {
+      "id": 9,
+      "type": "ShowAnimatedGIF",
+      "pos": [
+        1780,
+        1000
+      ],
+      "size": [
+        400,
+        400
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "gif_path",
+          "type": "STRING",
+          "link": 12
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "ShowAnimatedGIF"
+      },
+      "widgets_values": [],
+      "title": "denoising process (GIF)"
+    },
+    {
+      "id": 10,
+      "type": "MarkdownNote",
+      "pos": [
+        80,
+        1000
+      ],
+      "size": [
+        1200,
+        500
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "How to read this workflow",
+      "properties": {
+        "widget_ue_connectable": {}
+      },
+      "widgets_values": [
+        "# 01 \u00b7 SDXL img2img \u2014 process capture\n\nThis is the single-model graph, extended so you can see how the image is made.\n\n- **KSampler (capture process)** runs the normal SDXL img2img sampling (DreamShaper XL, 30 steps, denoise 0.75) and sends decoded frames to the UI while it works.\n- **final image** is the full-resolution result, also saved to `outputs/session/<run_id>/final.png`.\n- **denoising process (GIF)** is the saved animation, `outputs/session/<run_id>/process.gif`; it plays automatically in the node and in Queue History once the prompt finishes.\n- Every run appends to `outputs/session/session.html` \u2014 open it to see all previous generations from this session with their GIFs and final images.\n\nThe GIF uses every 2nd sampling step at 512 px, 8 fps. Change `frame_stride`, `max_side` or `fps` on the sampler node to taste. To use NoobAI instead, change the checkpoint in the loader; the capture works the same way."
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      1,
+      2,
+      0,
+      "CLIP"
+    ],
+    [
+      2,
+      1,
+      1,
+      3,
+      0,
+      "CLIP"
+    ],
+    [
+      3,
+      4,
+      0,
+      5,
+      0,
+      "IMAGE"
+    ],
+    [
+      4,
+      5,
+      0,
+      6,
+      0,
+      "IMAGE"
+    ],
+    [
+      5,
+      1,
+      2,
+      6,
+      1,
+      "VAE"
+    ],
+    [
+      6,
+      1,
+      0,
+      7,
+      0,
+      "MODEL"
+    ],
+    [
+      7,
+      1,
+      2,
+      7,
+      1,
+      "VAE"
+    ],
+    [
+      8,
+      2,
+      0,
+      7,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      9,
+      3,
+      0,
+      7,
+      3,
+      "CONDITIONING"
+    ],
+    [
+      10,
+      6,
+      0,
+      7,
+      4,
+      "LATENT"
+    ],
+    [
+      11,
+      7,
+      0,
+      8,
+      0,
+      "IMAGE"
+    ],
+    [
+      12,
+      7,
+      3,
+      9,
+      0,
+      "STRING"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "01 \u00b7 SDXL img2img \u2014 live process + session GIF",
+      "bounding": [
+        -50,
+        -50,
+        2300,
+        1600
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.5,
+      "offset": [
+        40,
+        40
+      ]
+    }
+  },
+  "version": 0.4
+}
