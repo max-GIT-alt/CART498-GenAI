@@ -1,0 +1,14 @@
+demo_models:
+    # Relative to the directory ComfyUI is started from. The run scripts start
+    # in the project root, and scripts/fetch_models.py fills these folders.
+    base_path: ./models/
+    checkpoints: |
+        checkpoints/
+    unet: |
+        unet/
+    text_encoders: |
+        text_encoders/
+    vae: |
+        vae/
+    loras: |
+        loras/

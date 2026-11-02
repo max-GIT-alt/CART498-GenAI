@@ -1,0 +1,3 @@
+# Only needed if you run the scripts outside ComfyUI's Python environment.
+Pillow>=10.0
+requests>=2.28
