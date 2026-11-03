@@ -35,17 +35,39 @@ def log(message):
     print(message, flush=True)
 
 
+def comfyui_at(candidate):
+    """Return the folder holding main.py, accepting a portable build's root.
+
+    The Windows portable archive unpacks to ``ComfyUI_windows_portable`` with
+    ``ComfyUI/main.py`` and ``python_embeded/python.exe`` as siblings. Users
+    naturally point COMFYUI_DIR at the outer folder, so accept both levels.
+    """
+    for path in (candidate, candidate / "ComfyUI"):
+        if (path / "main.py").is_file():
+            return path.resolve()
+    return None
+
+
 def find_comfyui():
-    configured = os.environ.get("COMFYUI_DIR")
+    configured = os.environ.get("COMFYUI_DIR", "").strip().strip('"')
     candidates = []
     if configured:
         candidates.append(Path(configured).expanduser())
+        found = comfyui_at(Path(configured).expanduser())
+        if found:
+            return found
     if sys.platform.startswith("win"):
+        home = Path.home()
         candidates += [
             Path(r"C:\ComfyUI"),
-            Path.home() / "ComfyUI",
-            Path.home() / "comfyui",
-            Path.home() / "Documents" / "ComfyUI",
+            Path(r"C:\ComfyUI_windows_portable"),
+            home / "ComfyUI",
+            home / "comfyui",
+            home / "ComfyUI_windows_portable",
+            home / "Documents" / "ComfyUI",
+            home / "Documents" / "ComfyUI_windows_portable",
+            home / "Desktop" / "ComfyUI_windows_portable",
+            home / "Downloads" / "ComfyUI_windows_portable",
         ]
     elif sys.platform == "darwin":
         candidates += [
@@ -62,18 +84,20 @@ def find_comfyui():
             Path.home() / "Documents" / "ComfyUI",
         ]
     for candidate in candidates:
-        if (candidate / "main.py").is_file():
-            return candidate.resolve()
+        found = comfyui_at(candidate)
+        if found:
+            return found
     raise SystemExit(
         "ComfyUI not found. Set COMFYUI_DIR to the folder containing main.py.\n"
-        "  Linux/macOS:  export COMFYUI_DIR=~/ComfyUI\n"
-        "  Windows cmd:  set COMFYUI_DIR=C:\\ComfyUI\n"
-        "  PowerShell:   $env:COMFYUI_DIR = \"C:\\ComfyUI\""
+        "  Windows portable: C:\\ComfyUI_windows_portable\\ComfyUI\n"
+        "  Linux/macOS:      export COMFYUI_DIR=~/ComfyUI\n"
+        "  Windows cmd:      set COMFYUI_DIR=C:\\ComfyUI\n"
+        "  PowerShell:       $env:COMFYUI_DIR = \"C:\\ComfyUI\""
     )
 
 
 def find_python(comfyui):
-    configured = os.environ.get("COMFYUI_PYTHON")
+    configured = os.environ.get("COMFYUI_PYTHON", "").strip().strip('"')
     if configured:
         return configured
     candidates = [
@@ -83,6 +107,10 @@ def find_python(comfyui):
         comfyui / ".venv" / "bin" / "python",
         comfyui / "python_embeded" / "python.exe",
         comfyui / "python_embeded" / "python",
+        # Windows portable layout: ComfyUI_windows_portable/python_embeded
+        # sits next to ComfyUI_windows_portable/ComfyUI.
+        comfyui.parent / "python_embeded" / "python.exe",
+        comfyui.parent / "python_embeded" / "python",
     ]
     for candidate in candidates:
         if candidate.is_file():
@@ -184,6 +212,11 @@ def start_server(comfyui, python, url):
 
     log(f"starting ComfyUI on {url} ...")
     with open(LOG, "ab") as output:
+        output.write(
+            f"\n=== {time.strftime('%Y-%m-%d %H:%M:%S')} "
+            f"{subprocess.list2cmdline(command)}\n".encode("utf-8", "replace")
+        )
+        output.flush()
         kwargs = {"cwd": str(ROOT), "stdout": output, "stderr": subprocess.STDOUT}
         if sys.platform.startswith("win"):
             kwargs["creationflags"] = (
@@ -207,6 +240,10 @@ def start_server(comfyui, python, url):
         if LOG.is_file():
             lines = LOG.read_text(errors="replace").splitlines()[-20:]
             log("\n".join(lines))
+        log("check that COMFYUI_DIR points at the folder containing main.py and that")
+        log("COMFYUI_PYTHON is ComfyUI's own python (venv or python_embeded).")
+        log("If the log ends with 'No module named torch', the launcher is using the")
+        log("wrong interpreter; set COMFYUI_PYTHON to the portable python.exe.")
         raise SystemExit(1)
 
 
@@ -292,6 +329,12 @@ def main(argv=None):
     python = find_python(comfyui)
     log(f"ComfyUI: {comfyui}")
     log(f"python:  {python}")
+    if (not os.environ.get("COMFYUI_PYTHON")
+            and os.path.normcase(os.path.abspath(python))
+            == os.path.normcase(os.path.abspath(sys.executable))):
+        log("note: no venv or python_embeded found in the ComfyUI folder; using the")
+        log("      interpreter that runs the launcher. If ComfyUI reports")
+        log("      'No module named torch', set COMFYUI_PYTHON to ComfyUI's python.exe.")
 
     if args.command == "micro":
         cmd_micro(passthrough, comfyui, python)
