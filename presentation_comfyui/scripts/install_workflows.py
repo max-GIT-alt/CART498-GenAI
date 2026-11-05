@@ -13,6 +13,7 @@ DEST = os.path.join(ROOT, ".comfy-user", "default", "workflows")
 WORKFLOWS = [
     ("00_matrix_all.json", "00 Matrix — 3 anchors x 3 models.json"),
     ("01_sdxl_img2img_process.json", "01 SDXL img2img + process GIF.json"),
+    ("01m_micro_img2img_process.json", "01m Micro img2img + process GIF.json"),
     ("01a_sdxl_img2img_plain.json", "01a SDXL img2img (plain).json"),
     ("02_qwen_image_edit.json", "02 Qwen Image Edit (anchor demo).json"),
     ("03_denoise_ladder.json", "03 Denoise ladder — NoobAI.json"),

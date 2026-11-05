@@ -31,11 +31,14 @@ Qwen models used by the full comparison are optional: if you already have them
 locally, symlink them in as described in [`models/README.md`](models/README.md).
 
 Prerequisites: Python 3.9+ with `venv` support. `scripts/fetch_comfyui.py` fetches
-ComfyUI into `~/ComfyUI`, creates its `venv`, and installs the complete core
-`requirements.txt`. Git is optional because the script can fall back to a ZIP
-archive. Use `--torch-index URL` if you need PyTorch wheels from a platform/GPU-
-specific pip index, or `--skip-deps` for a source-only fetch. `ComfyUI-GGUF` is
-only needed for the optional Qwen graph; the micro demo does not use it.
+ComfyUI into `~/ComfyUI`, creates its `venv`, installs the **PyTorch build that matches
+the machine** (CUDA when `nvidia-smi` works, ROCm on Linux AMD, otherwise the ~2 GB CPU
+build; PyPI's default on macOS), installs ComfyUI's `requirements.txt`, and verifies the
+result. Run `--dry-run` first to see the plan and disk estimate; `--torch cpu|cuda|rocm|xpu`
+or `--torch-index URL` overrides the choice. Git is optional (ZIP fallback), and
+`--skip-deps` fetches source only. If the install is interrupted (network drop, disk
+quota), rerun the same command: it reuses the venv and the wheels already downloaded.
+`ComfyUI-GGUF` is only needed for the optional Qwen graph; the micro demo does not use it.
 
 ```bash
 git clone <repo-url> comfyui-anchor-demo
@@ -129,6 +132,13 @@ $p = ".\run_micro.cmd"
 py -3 -c "from pathlib import Path; p=Path('run_micro.cmd'); p.write_bytes(p.read_bytes().replace(b'\r\n', b'\n').replace(b'\n', b'\r\n'))"
 ```
 
+Before starting ComfyUI, the launcher checks that ComfyUI's Python has its core
+packages and PyTorch. If it reports `ComfyUI's Python is missing core packages`, the
+venv is incomplete — rerun `python3 scripts/fetch_comfyui.py` (it prints the exact
+command). It also picks the device flags: `--cpu` when torch sees no GPU, `--lowvram`
+on GPUs with 8 GB or less, nothing otherwise; any device flag in `COMFYUI_ARGS` takes
+precedence.
+
 Other Windows failures:
 
 - **`ComfyUI not found`** — `COMFYUI_DIR` must contain `main.py`. For the
@@ -220,6 +230,38 @@ The launcher runs ComfyUI with `--base-directory comfy-base`, a project-local ba
 directory. It symlinks (or copies, on Windows) `ComfyUI-Session` and the optional
 `ComfyUI-GGUF` node into that base directory, so nothing is written to the ComfyUI
 install itself.
+
+## Image-to-image with process GIFs on the micro model
+
+Workflow **01m** is workflow 01 (img2img + process GIF) on the 2 GB micro model, so the
+image-to-image demo runs without the SDXL checkpoints: 4 LCM steps, cfg 2.0, denoise
+0.75, each anchor scaled to 512 px on its long side (512×512, 512×340, 340×512).
+
+**Linux / macOS**
+
+```bash
+python3 scripts/fetch_comfyui.py   # skip if ComfyUI is already set up
+./run_img2img.sh                   # all three anchors, process GIF for each
+./run_img2img.sh --setup-only      # prepare the live demo, queue nothing
+./run_img2img.sh --anchor 2 --seed 7
+```
+
+**Windows**
+
+```bat
+py -3 scripts\fetch_comfyui.py
+.\run_img2img.cmd
+```
+
+The launcher checks ComfyUI's venv, starts the server, downloads the micro model,
+installs the workflows into the sidebar, then queues anchors 1–3 and opens ComfyUI and
+`outputs/session/session.html`. For the live part, open **Workflows → `01m Micro img2img
++ process GIF`** and press **Run**; to switch anchors, change the image in *anchor 01* and
+set *Upscale Image* to that anchor's size (listed in the graph's note). On an RTX 3070 Ti
+a run takes seconds; on a CPU-only machine about 1.5–2.5 minutes.
+
+Same thing directly: `python scripts/bootstrap.py img2img [--setup-only] [--no-open]`,
+or against a running server `python scripts/run_session.py --model micro --anchor all`.
 
 ## Micro model for live demos
 
@@ -342,6 +384,7 @@ workflows/ui/                 open these in ComfyUI
   00_matrix_all.json          the whole 3 × 3 comparison in one graph
   01_sdxl_img2img.json        workflow 01 (now the process-capture version)
   01_sdxl_img2img_process.json  same graph with an explicit process name
+  01m_micro_img2img_process.json  workflow 01 on the micro model (4 LCM steps)
   01a_sdxl_img2img_plain.json   original plain workflow 01
   02_qwen_image_edit.json     single Qwen-Image-Edit 2511 graph
   03_denoise_ladder.json      NoobAI at denoise 0.35 / 0.55 / 0.75 / 0.95
@@ -353,7 +396,8 @@ comfy-base/                   local ComfyUI base (gitignored)
 scripts/
   bootstrap.py                cross-platform launcher (Linux/macOS/Windows)
   comfy_client.py             tiny ComfyUI API client
-  fetch_comfyui.py            fetches ComfyUI + installs core dependencies
+  fetch_comfyui.py            fetches ComfyUI, installs the right PyTorch + deps, verifies
+  comfy_env.py                checks a ComfyUI venv is complete (used by the two above)
   fetch_models.py             downloads the 2 GiB micro checkpoint
   fetch_micro_model.py        compatibility wrapper for the micro download
   prepare_anchors.py          normalises the three supplied images
@@ -375,6 +419,8 @@ run_micro.sh                  Linux/macOS: live micro demo
 run_micro.cmd                 Windows equivalent
 run_session.sh                Linux/macOS: process-capture run
 run_session.cmd               Windows equivalent
+run_img2img.sh                Linux/macOS: micro img2img + process GIFs, 3 anchors
+run_img2img.cmd               Windows equivalent
 extras/generated_set/         local archive of an earlier run (gitignored)
 ```
 

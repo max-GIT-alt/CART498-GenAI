@@ -6,6 +6,8 @@ Examples
     python scripts/bootstrap.py micro --prompt "a red fox in snow" --steps 6
     python scripts/bootstrap.py all --skip-matrix
     python scripts/bootstrap.py session --anchor 1 --model dreamshaper
+    python scripts/bootstrap.py img2img                # micro img2img + process GIFs
+    python scripts/bootstrap.py img2img --setup-only   # prepare the live demo only
     python scripts/bootstrap.py server
 
 Set ``COMFYUI_DIR`` when ComfyUI is not in a standard location. Set
@@ -24,6 +26,9 @@ import urllib.error
 import urllib.request
 import webbrowser
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import comfy_env  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 BASE_DIR = ROOT / "comfy-base"
@@ -187,7 +192,77 @@ def prepare_base_dir(comfyui):
         link_or_copy(websocket, BASE_DIR / "custom_nodes" / "websocket_image_save.py")
 
 
-def start_server(comfyui, python, url):
+# ComfyUI flags that choose a device or memory mode; any of these in
+# COMFYUI_ARGS means the user has decided, so the launcher adds none.
+DEVICE_FLAGS = {"--cpu", "--lowvram", "--novram", "--normalvram", "--highvram",
+                "--gpu-only", "--directml"}
+
+
+def fetch_command(comfyui):
+    py = "py -3" if sys.platform.startswith("win") else "python3"
+    sep = "\\" if sys.platform.startswith("win") else "/"
+    return f'{py} scripts{sep}fetch_comfyui.py "{comfyui}"'
+
+
+def preflight(comfyui, python):
+    """Refuse to start ComfyUI from an incomplete environment; return probe info."""
+    log("checking ComfyUI's Python environment ...")
+    info = comfy_env.run_probe(python, comfyui)
+    problem = None
+    if info.get("error"):
+        problem = info["error"]
+    elif info.get("missing"):
+        problem = ("ComfyUI's Python is missing core packages: "
+                   + ", ".join(info["missing"][:8])
+                   + (" ..." if len(info["missing"]) > 8 else ""))
+    elif not info["torch"].get("installed") or info["torch"].get("error"):
+        problem = "PyTorch does not import: " + info["torch"].get("error", "not installed")
+    if problem:
+        log(f"error: {problem}")
+        log(f"  python: {python}")
+        log("  The venv is incomplete (often an interrupted or out-of-space install).")
+        log("  Repair it with (resumes, installs the right PyTorch for this machine):")
+        log(f"    {fetch_command(comfyui)}")
+        if os.environ.get("COMFYUI_PYTHON"):
+            log("  or point COMFYUI_PYTHON at a complete ComfyUI interpreter.")
+        raise SystemExit(1)
+    log(f"  {comfy_env.describe(info)}")
+    return info
+
+
+def device_flags(info):
+    """Pick ComfyUI's device/memory flags unless COMFYUI_ARGS already does."""
+    extra = os.environ.get("COMFYUI_ARGS", "")
+    if any(flag in DEVICE_FLAGS for flag in extra.split()):
+        return []
+    torch = info.get("torch", {})
+    device = torch.get("device")
+    if device in ("cuda", "rocm"):
+        # The demo machine is an 8 GB card; --lowvram keeps SDXL + browser in VRAM.
+        return ["--lowvram"] if torch.get("vram_gb", 0) <= 8.5 else []
+    if device in ("mps", "xpu"):
+        return []
+    log("  note: torch sees no GPU, so ComfyUI runs on the CPU (--cpu). Expect")
+    log("        minutes per image instead of seconds.")
+    return ["--cpu"]
+
+
+def startup_hint(lines):
+    text = "\n".join(lines)
+    if "No module named" in text:
+        log("ComfyUI's Python is missing a package. Repair the venv with:")
+        log("  " + fetch_command(find_comfyui()))
+    elif "not allowed with argument" in text:
+        log("Two ComfyUI flags conflict (see the line above). Check COMFYUI_ARGS.")
+    elif sys.platform.startswith("win"):
+        log("check that COMFYUI_DIR points at the folder containing main.py and that")
+        log("COMFYUI_PYTHON is ComfyUI's own python (venv or python_embeded).")
+    else:
+        log("check that COMFYUI_DIR points at the folder containing main.py; the full")
+        log(f"output is in {LOG}.")
+
+
+def start_server(comfyui, python, url, flags=()):
     port = os.environ.get("COMFYUI_PORT", "8190")
     prepare_base_dir(comfyui)
     db = (ROOT / ".comfy-user" / "comfyui.db").as_posix()
@@ -203,8 +278,7 @@ def start_server(comfyui, python, url):
         "--database-url", f"sqlite:///{db}",
         "--preview-method", "auto", "--preview-size", "512", "--disable-auto-launch",
     ]
-    if sys.platform != "darwin":
-        command.append("--lowvram")
+    command += list(flags)
     extra = os.environ.get("COMFYUI_ARGS")
     if extra:
         import shlex
@@ -237,13 +311,11 @@ def start_server(comfyui, python, url):
         time.sleep(1)
     if not server_up(url):
         log(f"ComfyUI did not start; see {LOG}")
+        lines = []
         if LOG.is_file():
             lines = LOG.read_text(errors="replace").splitlines()[-20:]
             log("\n".join(lines))
-        log("check that COMFYUI_DIR points at the folder containing main.py and that")
-        log("COMFYUI_PYTHON is ComfyUI's own python (venv or python_embeded).")
-        log("If the log ends with 'No module named torch', the launcher is using the")
-        log("wrong interpreter; set COMFYUI_PYTHON to the portable python.exe.")
+        startup_hint(lines)
         raise SystemExit(1)
 
 
@@ -254,7 +326,8 @@ def ensure_server(comfyui, python):
             log("warning: the running ComfyUI does not expose KSamplerFrames;")
             log("         the session workflow needs a server started by this launcher.")
         return url
-    start_server(comfyui, python, url)
+    info = preflight(comfyui, python)
+    start_server(comfyui, python, url, device_flags(info))
     return url
 
 
@@ -267,8 +340,8 @@ def run_script(python, name, args=()):
 
 
 def cmd_micro(args, comfyui, python):
+    ensure_server(comfyui, python)  # checks the venv before the 2 GB download
     run_script(python, "fetch_models.py")
-    ensure_server(comfyui, python)
     run_script(python, "run_micro.py", args)
 
 
@@ -281,10 +354,28 @@ def cmd_session(args, comfyui, python, open_browser=True):
         webbrowser.open(gallery.as_uri())
 
 
+def cmd_img2img(args, comfyui, python, setup_only=False, open_browser=True):
+    """Micro-model img2img with process GIFs: server, model, workflow 01m, 3 runs."""
+    url = ensure_server(comfyui, python)  # checks the venv before the 2 GB download
+    run_script(python, "fetch_models.py")
+    run_script(python, "install_workflows.py")
+    gallery = ROOT / "outputs" / "session" / "session.html"
+    if not setup_only:
+        run_script(python, "run_session.py", ["--model", "micro", "--anchor", "all", *args])
+    log("")
+    log(f"live demo: open {url} -> Workflows -> '01m Micro img2img + process GIF' -> Run")
+    log("           (change the image in 'anchor 01' to switch anchors; the note in the")
+    log("            graph lists the Upscale Image size for each)")
+    if open_browser:
+        webbrowser.open(url)
+        if gallery.is_file() and not setup_only:
+            webbrowser.open(gallery.as_uri())
+
+
 def cmd_all(args, comfyui, python, skip_matrix=False):
     skip_matrix = skip_matrix or os.environ.get("DEMO_SKIP_MATRIX") == "1"
+    ensure_server(comfyui, python)  # checks the venv before the 2 GB download
     run_script(python, "fetch_models.py")
-    ensure_server(comfyui, python)
     for script in ("build_workflows.py", "build_session_workflow.py", "install_workflows.py"):
         run_script(python, script)
     run_script(python, "prepare_anchors.py")
@@ -319,6 +410,14 @@ def main(argv=None):
     session_parser = sub.add_parser("session", help="run one process-capture session")
     session_parser.add_argument("--no-open", action="store_true",
                                 help="do not open the session gallery in a browser")
+    img_parser = sub.add_parser(
+        "img2img", help="micro-model img2img with process GIFs on the three anchors "
+                        "(extra options go to run_session.py, e.g. --anchor 2 --seed 7)")
+    img_parser.add_argument("--setup-only", action="store_true",
+                            help="start ComfyUI, fetch the model and install workflow "
+                                 "01m, but do not queue any runs")
+    img_parser.add_argument("--no-open", action="store_true",
+                            help="do not open ComfyUI or the gallery in a browser")
     all_parser = sub.add_parser("all", help="micro demo, plus the matrix when local models exist")
     all_parser.add_argument("--skip-matrix", action="store_true",
                             help="run only the micro demo even if the big models are present")
@@ -333,11 +432,14 @@ def main(argv=None):
             and os.path.normcase(os.path.abspath(python))
             == os.path.normcase(os.path.abspath(sys.executable))):
         log("note: no venv or python_embeded found in the ComfyUI folder; using the")
-        log("      interpreter that runs the launcher. If ComfyUI reports")
-        log("      'No module named torch', set COMFYUI_PYTHON to ComfyUI's python.exe.")
+        log("      interpreter that runs the launcher. Create ComfyUI's venv with")
+        log(f"      {fetch_command(comfyui)}  or set COMFYUI_PYTHON.")
 
     if args.command == "micro":
         cmd_micro(passthrough, comfyui, python)
+    elif args.command == "img2img":
+        cmd_img2img(passthrough, comfyui, python, setup_only=args.setup_only,
+                    open_browser=not args.no_open)
     elif args.command == "session":
         cmd_session(passthrough, comfyui, python, open_browser=not args.no_open)
     elif args.command == "all":
