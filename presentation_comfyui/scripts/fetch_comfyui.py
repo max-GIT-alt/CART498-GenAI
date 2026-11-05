@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Fetch a ComfyUI checkout on Windows, Linux, or macOS.
+"""Fetch and set up ComfyUI on Windows, Linux, or macOS.
 
 Uses only the Python standard library. Git is used when available; otherwise
-the script downloads and extracts the corresponding GitHub ZIP archive.
-Model weights and Python dependencies are intentionally not installed here.
+the script downloads and extracts the corresponding GitHub ZIP archive. By
+default, it creates ComfyUI's venv and installs its complete requirements.txt.
+Model weights are fetched separately by this project's fetch_models.py.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
+from typing import Optional
 
 REPOSITORY = "https://github.com/comfyanonymous/ComfyUI.git"
 ARCHIVE = "https://codeload.github.com/comfyanonymous/ComfyUI/zip/{ref}"
@@ -26,7 +28,15 @@ DEFAULT_DIRECTORY = Path.home() / "ComfyUI"
 
 
 class FetchError(RuntimeError):
-    """An expected, user-actionable fetch error."""
+    """An expected, user-actionable setup error."""
+
+
+def run_checked(command: list[str], failure_message: str) -> None:
+    """Run a command and turn a non-zero exit into a concise setup error."""
+    try:
+        subprocess.run(command, check=True)
+    except subprocess.CalledProcessError as error:
+        raise FetchError(f"{failure_message} (exit code {error.returncode}).") from error
 
 
 def clone_with_git(destination: Path, ref: str) -> None:
@@ -102,60 +112,137 @@ def download_archive(destination: Path, ref: str) -> None:
     checkout.replace(destination / "checkout")
 
 
-def fetch(destination: Path, ref: str, use_archive: bool) -> None:
-    """Fetch ComfyUI without modifying an existing installation."""
-    destination = destination.expanduser().resolve()
+def virtual_environment_python(checkout: Path) -> Path:
+    """Return the venv interpreter path for the current operating system."""
+    if os.name == "nt":
+        return checkout / "venv" / "Scripts" / "python.exe"
+    return checkout / "venv" / "bin" / "python"
 
-    if destination.is_dir() and (destination / "main.py").is_file():
-        print(f"ComfyUI is already present at: {destination}")
-        return
-    if destination.exists() and not destination.is_dir():
-        raise FetchError(f"Destination exists but is not a directory: {destination}")
-    if destination.is_dir() and any(destination.iterdir()):
-        raise FetchError(
-            f"Destination is non-empty and is not a ComfyUI checkout: {destination}\n"
-            "Choose another directory or move the existing contents aside."
+
+def install_dependencies(checkout: Path, torch_index: Optional[str]) -> Path:
+    """Create or reuse ComfyUI's venv and install all core requirements."""
+    requirements = checkout / "requirements.txt"
+    if not requirements.is_file():
+        raise FetchError(f"ComfyUI's requirements.txt was not found at: {requirements}")
+
+    venv = checkout / "venv"
+    python = virtual_environment_python(checkout)
+
+    if not python.is_file():
+        if venv.exists() and (not venv.is_dir() or any(venv.iterdir())):
+            raise FetchError(
+                f"The virtual environment at {venv} is incomplete. Move it aside "
+                "or remove it, then rerun this script."
+            )
+        print(f"\nCreating virtual environment: {venv}")
+        try:
+            run_checked(
+                [sys.executable, "-m", "venv", str(venv)],
+                "Could not create the virtual environment",
+            )
+        except FetchError as error:
+            raise FetchError(
+                f"{error} On Debian/Ubuntu, install the python3-venv package; "
+                "on other systems, ensure your Python installation includes venv."
+            ) from error
+
+    print("\nUpgrading pip")
+    run_checked(
+        [str(python), "-m", "pip", "install", "--upgrade", "pip"],
+        "Could not upgrade pip",
+    )
+
+    if torch_index:
+        print(f"\nInstalling PyTorch from: {torch_index}")
+        run_checked(
+            [
+                str(python),
+                "-m",
+                "pip",
+                "install",
+                "--upgrade",
+                "--index-url",
+                torch_index,
+                "torch",
+                "torchvision",
+            ],
+            "Could not install PyTorch from the requested index",
         )
 
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    staging = Path(
-        tempfile.mkdtemp(prefix=f".{destination.name}.fetch-", dir=destination.parent)
+    print(f"\nInstalling ComfyUI dependencies from: {requirements}")
+    run_checked(
+        [str(python), "-m", "pip", "install", "-r", str(requirements)],
+        "Could not install ComfyUI's dependencies",
     )
-    checkout = staging / "checkout"
+    return python
 
-    try:
-        if use_archive or shutil.which("git") is None:
-            if not use_archive:
-                print("Git was not found; using the ZIP archive instead.")
-            download_archive(staging, ref)
-        else:
-            clone_with_git(checkout, ref)
 
-        if not (checkout / "main.py").is_file():
-            raise FetchError("Fetch completed, but ComfyUI's main.py was not found.")
+def fetch(
+    destination: Path,
+    ref: str,
+    use_archive: bool,
+    skip_deps: bool,
+    torch_index: Optional[str],
+) -> None:
+    """Fetch and set up ComfyUI without overwriting an unrelated directory."""
+    destination = destination.expanduser().resolve()
+    already_present = destination.is_dir() and (destination / "main.py").is_file()
 
-        # An empty destination is safe to replace; non-empty directories were
-        # rejected above and are never removed.
-        if destination.is_dir():
-            destination.rmdir()
-        checkout.replace(destination)
-    finally:
-        shutil.rmtree(staging, ignore_errors=True)
+    if already_present:
+        print(f"ComfyUI is already present at: {destination}")
+    else:
+        if destination.exists() and not destination.is_dir():
+            raise FetchError(f"Destination exists but is not a directory: {destination}")
+        if destination.is_dir() and any(destination.iterdir()):
+            raise FetchError(
+                f"Destination is non-empty and is not a ComfyUI checkout: {destination}\n"
+                "Choose another directory or move the existing contents aside."
+            )
 
-    print(f"\nComfyUI {ref!r} is ready at: {destination}")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        staging = Path(
+            tempfile.mkdtemp(prefix=f".{destination.name}.fetch-", dir=destination.parent)
+        )
+        checkout = staging / "checkout"
+
+        try:
+            if use_archive or shutil.which("git") is None:
+                if not use_archive:
+                    print("Git was not found; using the ZIP archive instead.")
+                download_archive(staging, ref)
+            else:
+                clone_with_git(checkout, ref)
+
+            if not (checkout / "main.py").is_file():
+                raise FetchError("Fetch completed, but ComfyUI's main.py was not found.")
+
+            # An empty destination is safe to replace; non-empty directories were
+            # rejected above and are never removed.
+            if destination.is_dir():
+                destination.rmdir()
+            checkout.replace(destination)
+        finally:
+            shutil.rmtree(staging, ignore_errors=True)
+
+        print(f"\nComfyUI {ref!r} fetched to: {destination}")
+
     if destination != DEFAULT_DIRECTORY.resolve():
         print("Set COMFYUI_DIR to this path before running the demo launcher.")
-    print(
-        "This fetched source code only. Install ComfyUI's Python dependencies "
-        "before launching it."
-    )
+
+    if skip_deps:
+        print("Dependency installation skipped (--skip-deps).")
+        return
+
+    python = install_dependencies(destination, torch_index)
+    print("\nComfyUI and its core dependencies are ready.")
+    print(f"Virtual environment: {python.parent.parent}")
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Fetch ComfyUI for this demo. Defaults to ~/ComfyUI, a location "
-            "the existing launcher detects automatically."
+            "Fetch ComfyUI, create its venv, and install its core dependencies. "
+            "Defaults to ~/ComfyUI, which the existing launcher detects."
         )
     )
     parser.add_argument(
@@ -175,18 +262,32 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="download a ZIP archive instead of using Git",
     )
+    dependency_options = parser.add_mutually_exclusive_group()
+    dependency_options.add_argument(
+        "--skip-deps",
+        action="store_true",
+        help="fetch source code only; do not create a venv or install packages",
+    )
+    dependency_options.add_argument(
+        "--torch-index",
+        metavar="URL",
+        help=(
+            "install torch and torchvision from this pip index before installing "
+            "the remaining ComfyUI requirements"
+        ),
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
     try:
-        fetch(args.directory, args.ref, args.archive)
+        fetch(args.directory, args.ref, args.archive, args.skip_deps, args.torch_index)
     except (FetchError, OSError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:
-        print("\nFetch cancelled.", file=sys.stderr)
+        print("\nSetup cancelled.", file=sys.stderr)
         return 130
     return 0
 

@@ -30,12 +30,12 @@ The three base images are committed in `images/`. Model weights are not — the
 Qwen models used by the full comparison are optional: if you already have them
 locally, symlink them in as described in [`models/README.md`](models/README.md).
 
-Prerequisites: Python 3.9+. `scripts/fetch_comfyui.py` fetches a ComfyUI checkout
-into `~/ComfyUI` by default; Git is optional because the script can fall back to a
-ZIP archive. It fetches source code only, so a new checkout still needs ComfyUI's
-Python dependencies (including PyTorch) installed using ComfyUI's normal setup
-instructions. `ComfyUI-GGUF` is only needed for the optional Qwen graph; the micro
-demo does not use it.
+Prerequisites: Python 3.9+ with `venv` support. `scripts/fetch_comfyui.py` fetches
+ComfyUI into `~/ComfyUI`, creates its `venv`, and installs the complete core
+`requirements.txt`. Git is optional because the script can fall back to a ZIP
+archive. Use `--torch-index URL` if you need PyTorch wheels from a platform/GPU-
+specific pip index, or `--skip-deps` for a source-only fetch. `ComfyUI-GGUF` is
+only needed for the optional Qwen graph; the micro demo does not use it.
 
 ```bash
 git clone <repo-url> comfyui-anchor-demo
@@ -45,7 +45,7 @@ cd comfyui-anchor-demo
 **Linux / macOS**
 
 ```bash
-python3 scripts/fetch_comfyui.py   # skip if ComfyUI is already installed
+python3 scripts/fetch_comfyui.py   # skip if ComfyUI is already set up
 python3 scripts/fetch_models.py
 ./run_micro.sh
 ```
@@ -53,7 +53,7 @@ python3 scripts/fetch_models.py
 **Windows (cmd or PowerShell)**
 
 ```bat
-py -3 scripts\fetch_comfyui.py   :: skip if ComfyUI is already installed
+py -3 scripts\fetch_comfyui.py   :: skip if ComfyUI is already set up
 py -3 scripts\fetch_models.py
 .\run_micro.cmd
 ```
@@ -353,7 +353,7 @@ comfy-base/                   local ComfyUI base (gitignored)
 scripts/
   bootstrap.py                cross-platform launcher (Linux/macOS/Windows)
   comfy_client.py             tiny ComfyUI API client
-  fetch_comfyui.py            fetches ComfyUI on Windows/Linux/macOS
+  fetch_comfyui.py            fetches ComfyUI + installs core dependencies
   fetch_models.py             downloads the 2 GiB micro checkpoint
   fetch_micro_model.py        compatibility wrapper for the micro download
   prepare_anchors.py          normalises the three supplied images
